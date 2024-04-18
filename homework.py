@@ -27,6 +27,8 @@ HOMEWORK_VERDICTS = {
     'rejected': 'Работа проверена: у ревьюера есть замечания.'
 }
 
+logger = logging.getLogger(__name__)
+
 
 def check_tokens():
     """Проверка доступности переменных окружения."""
@@ -65,21 +67,24 @@ def get_api_answer(timestamp):
 
 
 def check_response(response):
-    """Проверка ответа API."""
-    if not isinstance(response, dict):
-        message = 'Ошибка типа данных ответа API'
-        logger.error(message)
-        raise TypeError(message)
-    if 'homeworks' not in response or 'current_date' not in response:
-        message = 'Отсутствие ожидаемых ключей в ответе API'
-        logger.error(message)
+    """Проверяет ответ API на соответствие документации."""
+    if not response:
+        message = "В ответе пришел пустой словарь."
+        logging.error(message)
         raise KeyError(message)
-    homeworks = response.get('homeworks')
-    if not isinstance(homeworks, list):
-        message = 'Ошибка типа данных. Ключ: homeworks'
-        logger.error(message)
+    if not isinstance(response, dict):
+        message = 'Тип ответа не соответствует "dict".'
+        logging.error(message)
         raise TypeError(message)
-    return homeworks
+    if "homeworks" not in response:
+        message = 'В ответе отсутствует ключ "homeworks".'
+        logging.error(message)
+        raise KeyError(message)
+    if not isinstance(response.get("homeworks"), list):
+        message = "Формат ответа не соответствует списку."
+        logging.error(message)
+        raise TypeError(message)
+    return response.get("homeworks")
 
 
 def parse_status(homework):
@@ -95,7 +100,7 @@ def parse_status(homework):
         logger.error(message)
         raise Exception(message)
     verdict = HOMEWORK_VERDICTS[homework_status]
-    return f'Cтатус вашей последней работы "{homework_name}": {verdict}'
+    return f'Изменился статус проверки работы "{homework_name}": {verdict}'
 
 
 def main():
@@ -104,7 +109,6 @@ def main():
         logger.critical("Отсутствуют токены. Программа остановлена")
         sys.exit()
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    send_message(bot, 'Я включился!')
     timestamp = 0
     error = ''
     homework = {}
@@ -132,7 +136,6 @@ def main():
 
 
 if __name__ == '__main__':
-    logger = logging.getLogger(__name__)
     rotationHandler = RotatingFileHandler(
         'log.txt',
         maxBytes=50000000,
