@@ -9,8 +9,9 @@ import requests
 import telegram
 from dotenv import load_dotenv
 
-load_dotenv()
+import exceptions
 
+load_dotenv()
 
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
@@ -58,9 +59,9 @@ def get_api_answer(timestamp):
     try:
         response = requests.get(**params)
         if response.status_code != HTTPStatus.OK:
-            message = f'Ошибка. Код ответа (API): {response.status_code}'
-            logger.error(message)
-            raise Exception(message)
+            raise exceptions.APIResponseStatusCodeException(
+                f'Ошибка. Код ответа (API): {response.status_code}'
+            )
     except requests.RequestException as error:
         logger.error(f'Ошибка при запросе к API: {error}')
     return response.json()
@@ -98,7 +99,7 @@ def parse_status(homework):
     if homework_status not in HOMEWORK_VERDICTS:
         message = f'Неизвестный статус работы: {homework_status}'
         logger.error(message)
-        raise Exception(message)
+        raise exceptions.UnknownStatusException(message)
     verdict = HOMEWORK_VERDICTS[homework_status]
     return f'Изменился статус проверки работы "{homework_name}": {verdict}'
 
@@ -136,17 +137,19 @@ def main():
 
 
 if __name__ == '__main__':
+    logger.setLevel(logging.DEBUG)
+    formatter = logging.Formatter(
+        '%(asctime)s [%(levelname)s] %(message)s [in %(pathname)s:%(lineno)d]'
+    )
     rotationHandler = RotatingFileHandler(
         'log.txt',
         maxBytes=50000000,
         backupCount=5,
         encoding='UTF-8',
     )
-    logger.setLevel(logging.DEBUG)
-    formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
-    rotationHandler.setFormatter(formatter)
-    logger.addHandler(rotationHandler)
     streamHandler = logging.StreamHandler(sys.stdout)
+    rotationHandler.setFormatter(formatter)
     streamHandler.setFormatter(formatter)
+    logger.addHandler(rotationHandler)
     logger.addHandler(streamHandler)
     main()
